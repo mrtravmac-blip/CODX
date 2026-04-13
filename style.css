@@ -1,0 +1,41 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Trebuchet MS", system-ui, sans-serif;
+  background: radial-gradient(circle at top, #3c2f66, #1a1433 60%);
+  color: #f0ecff;
+}
+
+main {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+h1,
+.help {
+  text-align: center;
+  margin: 0;
+}
+
+.help {
+  color: #ccbdf8;
+  font-size: 0.95rem;
+}
+
+canvas {
+  border: 2px solid #8670c8;
+  border-radius: 12px;
+  box-shadow: 0 0 40px rgba(138, 112, 212, 0.4);
+  image-rendering: pixelated;
+  background: #20173f;
+}
