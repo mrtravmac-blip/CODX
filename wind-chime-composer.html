@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wind Chime Composer</title>
+  <style>
+    :root {
+      --bg1: #0b1026;
+      --bg2: #18213d;
+      --panel: rgba(20, 28, 58, 0.7);
+      --text: #ecf3ff;
+      --muted: #96a9d6;
+      --accent: #79b6ff;
+      --glow: rgba(121, 182, 255, 0.6);
+      --ok: #7ee8b8;
+      --warn: #ffd580;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+      background: radial-gradient(circle at 20% 10%, #23356c, transparent 40%),
+        radial-gradient(circle at 80% 20%, #243e71, transparent 45%),
+        linear-gradient(160deg, var(--bg1), var(--bg2));
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .wind-particles {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 0;
+    }
+
+    .particle {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      border-radius: 50%;
+      background: rgba(210, 235, 255, 0.8);
+      box-shadow: 0 0 8px rgba(174, 220, 255, 0.8);
+      animation: drift linear infinite;
+    }
+
+    @keyframes drift {
+      from { transform: translateX(-10vw) translateY(0); opacity: 0.25; }
+      20% { opacity: 0.8; }
+      to { transform: translateX(110vw) translateY(-30px); opacity: 0.1; }
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      gap: 16px;
+      grid-template-columns: 1.35fr 1fr;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(150, 180, 255, 0.18);
+      border-radius: var(--radius);
+      backdrop-filter: blur(8px);
+      padding: 14px;
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
+    }
+
+    h1 { margin: 0 0 4px; font-size: 1.6rem; }
+    h2 { margin: 0 0 10px; font-size: 1.05rem; color: #d6e7ff; }
+    p, label, small, button, input, select { font: inherit; }
+
+    .top {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .rack {
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 8px;
+      min-height: 280px;
+      padding: 20px 8px;
+      border-top: 3px solid rgba(220, 240, 255, 0.35);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .chime {
+      width: clamp(28px, 5vw, 44px);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(210,225,255,0.95), rgba(140,170,220,0.55));
+      box-shadow: inset 0 0 12px rgba(255,255,255,0.5), 0 0 16px rgba(120,160,255,0.35);
+      position: relative;
+      transform-origin: top center;
+      transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+      cursor: pointer;
+    }
+
+    .chime::before {
+      content: "";
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 2px;
+      height: 18px;
+      background: rgba(220, 235, 255, 0.8);
+    }
+
+    .chime.active {
+      filter: brightness(1.2);
+      box-shadow: inset 0 0 14px rgba(255,255,255,0.7), 0 0 24px var(--glow);
+    }
+
+    .grid-2 {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .grid-3 {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .controls label { display: block; color: var(--muted); font-size: 0.85rem; margin-bottom: 2px; }
+    input[type="range"], input[type="text"], select, button {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid rgba(149, 177, 232, 0.35);
+      background: rgba(20, 32, 66, 0.85);
+      color: var(--text);
+      padding: 8px;
+    }
+
+    button {
+      background: linear-gradient(180deg, rgba(92,138,223,0.95), rgba(63,102,179,0.95));
+      cursor: pointer;
+      transition: transform 0.06s ease;
+    }
+
+    button:hover { filter: brightness(1.08); }
+    button:active { transform: translateY(1px); }
+
+    .preset-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .chime-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 8px;
+      max-height: 58vh;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .chime-card {
+      border: 1px solid rgba(154, 182, 240, 0.22);
+      border-radius: 12px;
+      padding: 8px;
+      background: rgba(13, 22, 48, 0.75);
+    }
+
+    .meter {
+      height: 14px;
+      border-radius: 999px;
+      background: rgba(90, 120, 170, 0.35);
+      overflow: hidden;
+      border: 1px solid rgba(200,220,255,0.18);
+    }
+
+    .meter > div {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #7de4b6, #77b3ff, #ccb2ff);
+      transition: width 0.12s linear;
+    }
+
+    .status-ok { color: var(--ok); }
+    .status-warn { color: var(--warn); }
+
+    @media (max-width: 1050px) {
+      main { grid-template-columns: 1fr; }
+      .chime-list { max-height: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wind-particles" id="windParticles"></div>
+  <main>
+    <section class="panel top">
+      <div>
+        <h1>🎐 Wind Chime Composer</h1>
+        <small>Programmable ambient chime instrument with manual and live weather wind modes.</small>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; min-width: min(100%, 460px);">
+        <button id="audioBtn">Start Audio</button>
+        <button id="composeBtn">Compose Chord</button>
+        <button id="randomizeBtn">Randomize Tunings</button>
+        <button id="saveBtn">Save Setup</button>
+        <button id="loadBtn">Load Setup</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Virtual Chime Rack</h2>
+      <div class="rack" id="rack"></div>
+      <div class="controls grid-3">
+        <div><label>Chime Count (6–12)</label><input id="count" type="range" min="6" max="12" value="8"></div>
+        <div><label>Preset</label><select id="presetSelect"></select></div>
+        <div><label>Lock Musical Set</label><select id="lockSelect"><option value="on">On</option><option value="off">Off</option></select></div>
+      </div>
+    </section>
+
+    <section class="panel controls">
+      <h2>Global Sound Engine</h2>
+      <div class="grid-2">
+        <div><label>Master Volume</label><input id="masterVolume" type="range" min="0" max="1" step="0.01" value="0.7"></div>
+        <div><label>Reverb Amount</label><input id="reverb" type="range" min="0" max="1" step="0.01" value="0.35"></div>
+        <div><label>Global Decay</label><input id="globalDecay" type="range" min="0.5" max="8" step="0.1" value="3.4"></div>
+        <div><label>Global Brightness</label><input id="globalBrightness" type="range" min="0" max="1" step="0.01" value="0.55"></div>
+        <div><label>Random Timing Variation</label><input id="timingVar" type="range" min="0" max="0.8" step="0.01" value="0.24"></div>
+      </div>
+
+      <h2 style="margin-top: 14px;">Wind Control</h2>
+      <div class="grid-2">
+        <div><label>Mode</label><select id="windMode"><option value="manual">Manual Wind</option><option value="weather">Live Weather Wind</option></select></div>
+        <div><label>Direction (°)</label><input id="direction" type="range" min="0" max="360" step="1" value="100"></div>
+        <div><label>Wind Strength</label><input id="windStrength" type="range" min="0" max="100" value="35"></div>
+        <div><label>Continuous Breeze</label><select id="continuous"><option value="on">On</option><option value="off">Off</option></select></div>
+      </div>
+      <div style="margin-top:8px;"><button id="gustBtn">Gust!</button></div>
+      <div style="margin-top:10px;"><label>Wind Intensity Meter</label><div class="meter"><div id="meterFill"></div></div></div>
+
+      <h2 style="margin-top: 14px;">Live Weather</h2>
+      <div class="grid-2">
+        <div><label>Location (city or lat,lon)</label><input id="locationInput" type="text" placeholder="e.g. Seattle or 47.6,-122.3"></div>
+        <div style="display:flex; align-items:flex-end;"><button id="weatherBtn">Fetch Wind</button></div>
+      </div>
+      <small id="weatherStatus" class="status-warn">Weather status: not fetched yet.</small>
+
+      <h2 style="margin-top: 14px;">Musical Presets</h2>
+      <div class="preset-row" id="presetButtons"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Per-Chime Controls</h2>
+      <div class="chime-list" id="chimeList"></div>
+    </section>
+  </main>
+
+  <script>
+    const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const PRESETS = {
+      "Major Pentatonic": [0, 2, 4, 7, 9],
+      "Minor Pentatonic": [0, 3, 5, 7, 10],
+      "Dreamy Suspended": [0, 2, 5, 7, 9],
+      "Lydian Glow": [0, 2, 4, 6, 7, 9, 11],
+      "Dark Ambient": [0, 1, 3, 5, 6, 8, 10],
+      "Custom": null
+    };
+
+    const state = {
+      chimes: [],
+      audioCtx: null,
+      masterGain: null,
+      wetGain: null,
+      dryGain: null,
+      convolver: null,
+      lastTick: performance.now(),
+      breezeTimer: null,
+      windStrength: 35,
+      direction: 100,
+      mode: "manual",
+      lockSet: true,
+      preset: "Major Pentatonic",
+      weather: null
+    };
+
+    const el = (id) => document.getElementById(id);
+
+    function midiToFreq(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
+    function parseNote(note, octave) {
+      const idx = NOTE_NAMES.indexOf(note);
+      return (octave + 1) * 12 + idx;
+    }
+
+    function createImpulse(ctx, seconds = 2.8) {
+      const sampleRate = ctx.sampleRate;
+      const len = sampleRate * seconds;
+      const impulse = ctx.createBuffer(2, len, sampleRate);
+      for (let c = 0; c < 2; c++) {
+        const data = impulse.getChannelData(c);
+        for (let i = 0; i < len; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.4);
+        }
+      }
+      return impulse;
+    }
+
+    function ensureAudio() {
+      if (state.audioCtx) return;
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      state.audioCtx = ctx;
+      state.masterGain = ctx.createGain();
+      state.masterGain.gain.value = Number(el("masterVolume").value);
+      state.dryGain = ctx.createGain();
+      state.wetGain = ctx.createGain();
+      state.convolver = ctx.createConvolver();
+      state.convolver.buffer = createImpulse(ctx);
+
+      state.dryGain.gain.value = 0.8;
+      state.wetGain.gain.value = Number(el("reverb").value);
+      state.dryGain.connect(state.masterGain);
+      state.wetGain.connect(state.masterGain);
+      state.masterGain.connect(ctx.destination);
+    }
+
+    function playChime(chime, velocity = 0.7, delay = 0) {
+      if (!state.audioCtx) return;
+      const ctx = state.audioCtx;
+      const now = ctx.currentTime + delay;
+      const freq = midiToFreq(parseNote(chime.note, chime.octave));
+      const brightness = chime.brightness * Number(el("globalBrightness").value);
+      const decay = chime.decay * Number(el("globalDecay").value);
+
+      const dryNode = ctx.createGain();
+      const wetNode = ctx.createGain();
+      dryNode.connect(state.dryGain);
+      wetNode.connect(state.convolver);
+      state.convolver.connect(state.wetGain);
+
+      const panner = ctx.createStereoPanner();
+      panner.pan.value = Math.max(-1, Math.min(1, chime.pan + (Math.random() * 0.16 - 0.08)));
+      panner.connect(dryNode);
+      panner.connect(wetNode);
+
+      const partials = [1, 2.01, 2.73, 3.91];
+      const gains = [1, 0.35 + brightness * 0.2, 0.2 + brightness * 0.2, 0.12 + brightness * 0.16];
+      const envelope = ctx.createGain();
+      envelope.connect(panner);
+      envelope.gain.setValueAtTime(0.0001, now);
+      envelope.gain.exponentialRampToValueAtTime(velocity * chime.volume, now + 0.01);
+      envelope.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+
+      partials.forEach((ratio, i) => {
+        const osc = ctx.createOscillator();
+        osc.type = i === 0 ? "triangle" : "sine";
+        osc.frequency.value = freq * ratio;
+        const g = ctx.createGain();
+        g.gain.value = gains[i];
+        osc.connect(g);
+        g.connect(envelope);
+        osc.start(now);
+        osc.stop(now + decay + 0.2);
+      });
+
+      animateChime(chime.id, velocity);
+    }
+
+    function animateChime(id, intensity) {
+      const node = document.querySelector(`.chime[data-id='${id}']`);
+      if (!node) return;
+      node.classList.add("active");
+      const sway = (Math.random() * 20 - 10) * (0.4 + intensity);
+      node.style.transform = `rotate(${sway}deg)`;
+      setTimeout(() => {
+        node.style.transform = "rotate(0deg)";
+        node.classList.remove("active");
+      }, 280 + Math.random() * 180);
+    }
+
+    function generateChimes(count = 8) {
+      const prior = state.chimes;
+      state.chimes = Array.from({ length: count }, (_, i) => prior[i] || ({
+        id: i,
+        note: "C",
+        octave: 4,
+        volume: 0.65,
+        pan: (i / Math.max(1, count - 1)) * 2 - 1,
+        decay: 0.75,
+        brightness: 0.65
+      }));
+      applyPreset(state.preset);
+      renderRack();
+      renderChimeControls();
+    }
+
+    function applyPreset(name) {
+      state.preset = name;
+      const pattern = PRESETS[name];
+      if (!pattern) return;
+      state.chimes.forEach((c, i) => {
+        const degree = pattern[i % pattern.length];
+        const midi = 48 + degree + Math.floor(i / pattern.length) * 12;
+        c.note = NOTE_NAMES[midi % 12];
+        c.octave = Math.floor(midi / 12) - 1;
+      });
+      renderRack();
+      renderChimeControls();
+    }
+
+    function randomizeTunings() {
+      const presetPattern = PRESETS[state.preset] || PRESETS["Lydian Glow"];
+      state.chimes.forEach((c, i) => {
+        if (state.lockSet) {
+          const degree = presetPattern[Math.floor(Math.random() * presetPattern.length)];
+          const octave = 3 + Math.floor(Math.random() * 3);
+          const midi = (octave + 1) * 12 + degree;
+          c.note = NOTE_NAMES[midi % 12];
+          c.octave = octave;
+        } else {
+          c.note = NOTE_NAMES[Math.floor(Math.random() * NOTE_NAMES.length)];
+          c.octave = 3 + Math.floor(Math.random() * 3);
+        }
+      });
+      renderRack();
+      renderChimeControls();
+    }
+
+    function renderRack() {
+      const rack = el("rack");
+      rack.innerHTML = "";
+      state.chimes.forEach((c, i) => {
+        const d = document.createElement("div");
+        d.className = "chime";
+        d.dataset.id = c.id;
+        d.title = `${c.note}${c.octave}`;
+        d.style.height = `${110 + i * 9}px`;
+        d.addEventListener("click", () => playChime(c, 0.75, 0));
+        rack.appendChild(d);
+      });
+    }
+
+    function renderChimeControls() {
+      const wrap = el("chimeList");
+      wrap.innerHTML = "";
+      state.chimes.forEach((c, i) => {
+        const card = document.createElement("div");
+        card.className = "chime-card";
+        card.innerHTML = `
+          <strong>Chime ${i + 1}</strong>
+          <div class='grid-2'>
+            <div><label>Note</label><select data-k='note'>${NOTE_NAMES.map(n => `<option ${n===c.note?"selected":""}>${n}</option>`).join("")}</select></div>
+            <div><label>Octave</label><select data-k='octave'>${[2,3,4,5,6].map(o => `<option value='${o}' ${o===c.octave?"selected":""}>${o}</option>`).join("")}</select></div>
+            <div><label>Volume</label><input data-k='volume' type='range' min='0' max='1' step='0.01' value='${c.volume}'></div>
+            <div><label>Pan</label><input data-k='pan' type='range' min='-1' max='1' step='0.01' value='${c.pan}'></div>
+            <div><label>Decay</label><input data-k='decay' type='range' min='0.3' max='1.6' step='0.01' value='${c.decay}'></div>
+            <div><label>Brightness</label><input data-k='brightness' type='range' min='0.1' max='1.4' step='0.01' value='${c.brightness}'></div>
+          </div>
+          <div style='margin-top:6px'><button data-play='1'>Play Test</button></div>
+        `;
+        card.querySelectorAll("[data-k]").forEach(ctrl => {
+          ctrl.addEventListener("input", () => {
+            const k = ctrl.dataset.k;
+            c[k] = ["volume","pan","decay","brightness"].includes(k) ? Number(ctrl.value) : k === "octave" ? Number(ctrl.value) : ctrl.value;
+            renderRack();
+          });
+        });
+        card.querySelector("[data-play]").addEventListener("click", () => playChime(c, 0.82, 0));
+        wrap.appendChild(card);
+      });
+    }
+
+    function windBiasForChime(index) {
+      const dir = state.direction / 360;
+      const position = index / Math.max(1, state.chimes.length - 1);
+      return 0.4 + 0.6 * (1 - Math.abs(position - dir));
+    }
+
+    function scheduleWindTick() {
+      const strength = state.windStrength / 100;
+      el("meterFill").style.width = `${Math.min(100, state.windStrength)}%`;
+      if (strength <= 0.01) return;
+      const baseProb = 0.015 + strength * 0.09;
+      const variance = Number(el("timingVar").value);
+
+      state.chimes.forEach((c, i) => {
+        const p = baseProb * windBiasForChime(i);
+        if (Math.random() < p) {
+          const vel = 0.25 + strength * 0.7 + Math.random() * 0.2;
+          const delay = Math.random() * variance;
+          playChime(c, Math.min(1, vel), delay);
+        }
+      });
+
+      if (strength > 0.72 && Math.random() < 0.18) gust();
+    }
+
+    function gust() {
+      const count = 3 + Math.floor(Math.random() * Math.min(5, state.chimes.length));
+      for (let i = 0; i < count; i++) {
+        const c = state.chimes[Math.floor(Math.random() * state.chimes.length)];
+        const delay = i * 0.035 + Math.random() * Number(el("timingVar").value);
+        playChime(c, 0.45 + Math.random() * 0.55, delay);
+      }
+    }
+
+    function tick() {
+      const now = performance.now();
+      const dt = now - state.lastTick;
+      state.lastTick = now;
+      if (el("continuous").value === "on") {
+        const calls = Math.max(1, Math.floor(dt / 60));
+        for (let i = 0; i < calls; i++) scheduleWindTick();
+      }
+      requestAnimationFrame(tick);
+    }
+
+    async function geocodeLocation(input) {
+      const direct = input.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+      if (direct) return { lat: Number(direct[1]), lon: Number(direct[2]), name: `${direct[1]}, ${direct[2]}` };
+      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(input)}&count=1&language=en&format=json`;
+      const geo = await fetch(url);
+      const data = await geo.json();
+      if (!data.results || !data.results[0]) throw new Error("Location not found");
+      const r = data.results[0];
+      return { lat: r.latitude, lon: r.longitude, name: `${r.name}, ${r.country_code}` };
+    }
+
+    async function fetchWeatherWind() {
+      const input = el("locationInput").value.trim();
+      if (!input) return;
+      const status = el("weatherStatus");
+      status.textContent = "Weather status: fetching…";
+      status.className = "status-warn";
+      try {
+        const loc = await geocodeLocation(input);
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=wind_speed_10m,wind_direction_10m`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+        if (!data.current) throw new Error("No current wind in response");
+        const speed = Number(data.current.wind_speed_10m || 0);
+        const dir = Number(data.current.wind_direction_10m || 0);
+        state.weather = { ...loc, speed, dir, at: new Date().toLocaleTimeString() };
+        state.windStrength = Math.max(0, Math.min(100, Math.round(speed * 4.5)));
+        state.direction = dir;
+        el("windStrength").value = state.windStrength;
+        el("direction").value = state.direction;
+        status.textContent = `Weather: ${state.weather.name} | ${speed.toFixed(1)} km/h | ${dir.toFixed(0)}° (updated ${state.weather.at})`;
+        status.className = "status-ok";
+      } catch (err) {
+        status.textContent = `Weather fallback: ${err.message}. Using manual wind controls.`;
+        status.className = "status-warn";
+      }
+    }
+
+    function composeChord() {
+      state.chimes.forEach((c, i) => playChime(c, 0.45 + Math.random() * 0.25, i * 0.11 + Math.random() * 0.06));
+    }
+
+    function saveSetup() {
+      const payload = {
+        chimes: state.chimes,
+        preset: state.preset,
+        windStrength: state.windStrength,
+        direction: state.direction
+      };
+      localStorage.setItem("windChimeComposerSetup", JSON.stringify(payload));
+      el("weatherStatus").textContent = "Setup saved to localStorage.";
+    }
+
+    function loadSetup() {
+      const raw = localStorage.getItem("windChimeComposerSetup");
+      if (!raw) return;
+      try {
+        const p = JSON.parse(raw);
+        if (Array.isArray(p.chimes)) {
+          state.chimes = p.chimes;
+          state.preset = p.preset || state.preset;
+          state.windStrength = Number(p.windStrength ?? state.windStrength);
+          state.direction = Number(p.direction ?? state.direction);
+          el("count").value = String(Math.min(12, Math.max(6, state.chimes.length)));
+          el("windStrength").value = state.windStrength;
+          el("direction").value = state.direction;
+          el("presetSelect").value = state.preset;
+          renderRack();
+          renderChimeControls();
+          el("weatherStatus").textContent = "Setup loaded from localStorage.";
+        }
+      } catch {
+        el("weatherStatus").textContent = "Could not load setup (invalid localStorage entry).";
+      }
+    }
+
+    function setupUI() {
+      Object.keys(PRESETS).forEach(name => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        el("presetSelect").appendChild(opt);
+
+        const btn = document.createElement("button");
+        btn.textContent = name;
+        btn.onclick = () => { el("presetSelect").value = name; applyPreset(name); };
+        el("presetButtons").appendChild(btn);
+      });
+      el("presetSelect").value = state.preset;
+
+      el("audioBtn").onclick = () => { ensureAudio(); state.audioCtx.resume(); };
+      el("composeBtn").onclick = composeChord;
+      el("randomizeBtn").onclick = randomizeTunings;
+      el("saveBtn").onclick = saveSetup;
+      el("loadBtn").onclick = loadSetup;
+      el("gustBtn").onclick = gust;
+      el("weatherBtn").onclick = fetchWeatherWind;
+
+      el("count").oninput = (e) => generateChimes(Number(e.target.value));
+      el("windStrength").oninput = (e) => { state.windStrength = Number(e.target.value); };
+      el("direction").oninput = (e) => { state.direction = Number(e.target.value); };
+      el("windMode").oninput = (e) => { state.mode = e.target.value; };
+      el("lockSelect").oninput = (e) => { state.lockSet = e.target.value === "on"; };
+      el("presetSelect").oninput = (e) => applyPreset(e.target.value);
+
+      ["masterVolume", "reverb"].forEach(id => {
+        el(id).oninput = () => {
+          if (!state.audioCtx) return;
+          state.masterGain.gain.value = Number(el("masterVolume").value);
+          state.wetGain.gain.value = Number(el("reverb").value);
+        };
+      });
+    }
+
+    function initParticles() {
+      const wrap = el("windParticles");
+      for (let i = 0; i < 50; i++) {
+        const p = document.createElement("div");
+        p.className = "particle";
+        p.style.left = `${Math.random() * 100}%`;
+        p.style.top = `${Math.random() * 100}%`;
+        p.style.animationDuration = `${5 + Math.random() * 8}s`;
+        p.style.animationDelay = `${Math.random() * 10}s`;
+        wrap.appendChild(p);
+      }
+    }
+
+    // Boot the app UI and animation loop.
+    setupUI();
+    generateChimes(8);
+    initParticles();
+    tick();
+  </script>
+</body>
+</html>
